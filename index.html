@@ -412,6 +412,11 @@
     gap: 12px;
   }
 
+  /* На телефоне — руки друг под другом */
+  @media (max-width: 480px) {
+    .hands-grid { grid-template-columns: 1fr; }
+  }
+
   .hand-block {
     background: var(--bg);
     border: 1px solid var(--border);
