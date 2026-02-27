@@ -336,6 +336,7 @@ function renderChart() {
           grid: { color: "#1a1a1a" }
         },
         y: {
+          beginAtZero: true,  // ось Y всегда начинается с 0
           ticks: { color: "#555", font: { family: "IBM Plex Mono", size: 10 } },
           grid: { color: "#1a1a1a" }
         }
