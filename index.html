@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d0d0d">
+<meta name="description" content="Дневник тренировок с кистевым эспандером">
+<title>GRIP TRACKER</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<!-- Chart.js — библиотека для графиков -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+  /* ============================================================
+     CSS ПЕРЕМЕННЫЕ — цвета и шрифты в одном месте
+     Если захочешь поменять цвет акцента — меняешь только здесь
+  ============================================================ */
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --border: #2a2a2a;
+    --accent: #e8ff00;
+    --accent2: #ff4d00;
+    --text: #f0f0f0;
+    --muted: #666;
+    --radius: 4px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+  }
+
+  /* ============================================================
+     ЭКРАН АВТОРИЗАЦИИ
+  ============================================================ */
+  #auth-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .auth-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(64px, 20vw, 120px);
+    color: var(--accent);
+    letter-spacing: 4px;
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .auth-sub {
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 48px;
+  }
+
+  .google-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #fff;
+    color: #333;
+    border: none;
+    padding: 14px 28px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: opacity 0.15s;
+  }
+  .google-btn:hover { opacity: 0.9; }
+  .google-btn svg { width: 20px; height: 20px; }
+
+  /* ============================================================
+     ОСНОВНОЙ ЭКРАН ПРИЛОЖЕНИЯ
+  ============================================================ */
+  #app-screen {
+    display: none;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+  }
+
+  /* Шапка */
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .app-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(40px, 10vw, 72px);
+    color: var(--accent);
+    letter-spacing: 3px;
+    line-height: 1;
+  }
+
+  .app-title span {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-top: 4px;
+  }
+
+  .logout-area {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  #user-email {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .logout-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 4px 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  .logout-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* ============================================================
+     СТАТИСТИКА
+  ============================================================ */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 16px 10px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 7vw, 40px);
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* ============================================================
+     КАРТОЧКИ — общий стиль
+  ============================================================ */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 18px;
+    margin-bottom: 12px;
+  }
+
+  .card-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* ============================================================
+     СЕКЦИЯ ВВОДА — 2 колонки на широком экране
+  ============================================================ */
+  .input-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  /* На телефоне — 1 колонка */
+  @media (max-width: 520px) {
+    .input-grid { grid-template-columns: 1fr; }
+  }
+
+  select, input[type=number] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    padding: 10px 12px;
+    width: 100%;
+    appearance: none;
+    border-radius: var(--radius);
+  }
+
+  .preset-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .preset-btn {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    padding: 8px 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: var(--radius);
+    min-width: 60px;
+  }
+  .preset-btn:hover, .preset-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Счётчик подходов */
+  .counter-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+  }
+
+  .btn-small {
+    width: 36px; height: 36px;
+    background: var(--border);
+    border: none;
+    color: var(--text);
+    font-size: 20px;
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: background 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn-small:hover { background: #3a3a3a; }
+
+  .counter-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: var(--text);
+    min-width: 32px;
+    text-align: center;
+    line-height: 1;
+  }
+
+  /* ============================================================
+     СЕКЦИЯ РУК
+  ============================================================ */
+  .hands-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .hand-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 16px;
+    text-align: center;
+    border-radius: var(--radius);
+  }
+
+  .hand-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .hand-counter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .hand-val {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    color: var(--accent);
+    min-width: 70px;
+    text-align: center;
+    line-height: 1;
+  }
+
+  /* ============================================================
+     КНОПКА ЗАПИСАТЬ
+  ============================================================ */
+  #btn-log {
+    width: 100%;
+    padding: 18px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 4px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    margin-bottom: 24px;
+    border-radius: var(--radius);
+  }
+  #btn-log:hover { opacity: 0.88; }
+  #btn-log:active { opacity: 0.7; }
+
+  /* ============================================================
+     ГРАФИК
+  ============================================================ */
+  .chart-wrap {
+    height: 200px;
+    position: relative;
+  }
+
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+  }
+
+  /* ============================================================
+     ИСТОРИЯ — карточки тренировок
+  ============================================================ */
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .session-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border-radius: var(--radius);
+    transition: border-color 0.15s;
+  }
+  .session-card:hover { border-color: #3a3a3a; }
+
+  .session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .session-date {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .session-time {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 400;
+  }
+
+  .session-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Тег жёсткости — цвет задаётся через JS */
+  .resistance-tag {
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+
+  .delete-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    width: 26px; height: 26px;
+    cursor: pointer;
+    border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .delete-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .session-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .hand-stat {
+    background: var(--bg);
+    padding: 8px 12px;
+    border-radius: var(--radius);
+  }
+
+  .hand-label-sm {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .hand-val-sm {
+    font-size: 12px;
+  }
+
+  .hand-val-sm strong {
+    color: var(--accent);
+  }
+
+  .vol-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .vol-bar {
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    min-width: 4px;
+    transition: width 0.4s ease;
+  }
+
+  .vol-label {
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 3px;
+    padding: 40px 0;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+  }
+
+  /* ============================================================
+     ТОСТ — всплывающее уведомление снизу
+  ============================================================ */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--accent);
+    color: #000;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    padding: 12px 28px;
+    border-radius: var(--radius);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 99;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ============================================================
+     DIVIDER
+  ============================================================ */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 24px 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     ЭКРАН АВТОРИЗАЦИИ
+     Показывается когда пользователь не вошёл
+============================================================ -->
+<div id="auth-screen">
+  <div class="auth-title">GRIP<br>TRACKER</div>
+  <div class="auth-sub">Дневник тренировок с кистевым эспандером</div>
+  <button class="google-btn" id="btn-login">
+    <!-- Логотип Google в SVG -->
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+    Войти через Google
+  </button>
+</div>
+
+<!-- ============================================================
+     ОСНОВНОЙ ЭКРАН
+     Показывается после входа
+============================================================ -->
+<div id="app-screen">
+
+  <!-- Шапка -->
+  <div class="app-header">
+    <div class="app-title">
+      GRIP TRACKER
+      <span>Кистевой эспандер</span>
+    </div>
+    <div class="logout-area">
+      <span id="user-email"></span>
+      <button class="logout-btn" id="btn-logout">Выйти</button>
+    </div>
+  </div>
+
+  <!-- Статистика -->
+  <div class="stats-row">
+    <div class="stat-block">
+      <div class="stat-val" id="stat-sessions">0</div>
+      <div class="stat-label">Тренировок</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-val" id="stat-total">0</div>
+      <div class="stat-label">Всего сжатий</div>
+    </div>
+    <div class="stat-block">
+      <div class="stat-val" id="stat-best">0</div>
+      <div class="stat-label">Макс за подход</div>
+    </div>
+  </div>
+
+  <!-- Ввод тренировки -->
+  <div class="input-grid">
+    <div class="card">
+      <div class="card-label">Жёсткость эспандера</div>
+      <select id="resistance">
+        <option value="20">20 lb — Лёгкий</option>
+        <option value="30">30 lb — Средний</option>
+        <option value="40" selected>40 lb — Сильный</option>
+        <option value="50">50 lb — Очень сильный</option>
+        <option value="60">60 lb — Экстрим</option>
+      </select>
+
+      <div class="card-label" style="margin-top:16px">Подходы</div>
+      <div class="counter-row">
+        <button class="btn-small" onclick="changeSets(-1)">−</button>
+        <span class="counter-num" id="sets-val">3</span>
+        <button class="btn-small" onclick="changeSets(1)">+</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Повторений за подход</div>
+      <div class="preset-row">
+        <button class="preset-btn active" onclick="setPreset(this,100)">100</button>
+        <button class="preset-btn" onclick="setPreset(this,150)">150</button>
+        <button class="preset-btn" onclick="setPreset(this,200)">200</button>
+      </div>
+      <input type="number" id="reps-custom" placeholder="Своё число..." min="1" max="500"
+        style="margin-top:10px" oninput="customReps(this)">
+    </div>
+  </div>
+
+  <!-- Руки -->
+  <div class="card">
+    <div class="card-label">Повторения по рукам</div>
+    <div class="hands-grid">
+      <div class="hand-block">
+        <div class="hand-title">✋ Левая</div>
+        <div class="hand-counter">
+          <button class="btn-small" onclick="changeReps('L',-10)">−</button>
+          <div class="hand-val" id="reps-L">100</div>
+          <button class="btn-small" onclick="changeReps('L',10)">+</button>
+        </div>
+      </div>
+      <div class="hand-block">
+        <div class="hand-title">🤚 Правая</div>
+        <div class="hand-counter">
+          <button class="btn-small" onclick="changeReps('R',-10)">−</button>
+          <div class="hand-val" id="reps-R">100</div>
+          <button class="btn-small" onclick="changeReps('R',10)">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Кнопка записать -->
+  <button id="btn-log">→ ЗАПИСАТЬ ТРЕНИРОВКУ</button>
+
+  <hr class="divider">
+
+  <!-- График -->
+  <div class="card">
+    <div class="section-title">ПРОГРЕСС</div>
+    <div class="chart-wrap">
+      <canvas id="progress-chart"></canvas>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- История -->
+  <div class="history-header">
+    <div class="section-title">ИСТОРИЯ</div>
+  </div>
+  <div id="history-list"></div>
+
+</div>
+
+<!-- Тост уведомление -->
+<div class="toast" id="toast">ЗАПИСАНО!</div>
+
+<!-- Подключаем наш JS как ES модуль -->
+<script type="module" src="app.js"></script>
+
+</body>
+</html>
